@@ -3,7 +3,6 @@ const mysql = require('mysql2/promise');
 
 async function createDatabaseIfNotExists(connection) {
   try {
-    // Create the database if it doesn't exist
     const createDbQuery = `CREATE DATABASE IF NOT EXISTS \`${process.env.DB_DATABASE}\``;
     await connection.query(createDbQuery);
     console.log(`Database ${process.env.DB_DATABASE} created or already exists.`);
@@ -14,29 +13,50 @@ async function createDatabaseIfNotExists(connection) {
 
 async function createTableIfNotExists(connection) {
   try {
-    // Use the database
     await connection.query(`USE \`${process.env.DB_DATABASE}\``);
 
-    // Create the table if it doesn't exist
     const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE IF NOT EXISTS admin (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         age INT NOT NULL
       )
     `;
     await connection.query(createTableQuery);
-    console.log('Table `users` created or already exists.');
+    console.log('Table `admin` created or already exists.');
   } catch (err) {
     console.error('Error creating table:', err);
   }
 }
 
-async function insertData() {
+async function insertData(connection) {
+  try {
+    const data = { name: 'John Doe', age: 30 };
+
+    const sql = 'INSERT INTO admin (name, age) VALUES (?, ?)';
+
+    const [results] = await connection.execute(sql, [data.name, data.age]);
+    console.log('Data inserted:', results.insertId);
+  } catch (err) {
+    console.error('Error inserting data:', err);
+  }
+}
+
+async function fetchData(connection) {
+  try {
+    await connection.query(`USE \`${process.env.DB_DATABASE}\``);
+
+    const [rows] = await connection.execute('SELECT * FROM admin');
+    console.log('Fetched data:', rows);
+  } catch (err) {
+    console.error('Error fetching data:', err);
+  }
+}
+
+async function run() {
   let connection;
 
   try {
-    // Create a connection to the database (initially to check or create the database)
     connection = await mysql.createConnection({
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
@@ -45,26 +65,17 @@ async function insertData() {
 
     console.log('Connected to the database.');
 
-    // Create database if it does not exist
     await createDatabaseIfNotExists(connection);
 
-    // Reconnect to the database, now using the specific database
     await connection.changeUser({
       database: process.env.DB_DATABASE
     });
 
-    // Create table if it does not exist
     await createTableIfNotExists(connection);
 
-    // Data to be inserted
-    const data = { name: 'John Doe', age: 30 };
+    await insertData(connection);
 
-    // SQL query for insertion
-    const sql = 'INSERT INTO users (name, age) VALUES (?, ?)';
-
-    // Execute the query
-    const [results] = await connection.execute(sql, [data.name, data.age]);
-    console.log('Data inserted:', results.insertId);
+    await fetchData(connection);
 
   } catch (err) {
     console.error('Error:', err);
@@ -76,4 +87,4 @@ async function insertData() {
   }
 }
 
-insertData();
+run();
